@@ -1,0 +1,220 @@
+###################################################################################################
+# File               : common_makefile                                                            #
+# Author             : ADT-DT (bmkim)                                                             #
+# Description        : common_makefile run option                                                 #
+# Usage              :                                                                            #
+# Init Release Date  : 2025.06.04                                                                 #
+# Script Version     : 1.0                                                                        #
+# Revision History   :                                                                            #
+#         2025.06.04 - first released                                                             #
+###################################################################################################
+
+SHELL = /bin/sh
+
+#----------------------------------------------------------------------
+# Help messages
+#----------------------------------------------------------------------
+define HELP_MSG
+    @echo "============================================================================================================================================"
+    @echo " Makefile for NDM_GEN                                                                                                         			   "
+    @echo "                                                                                                                                            "
+    @echo " Usage : make [Target] [Option=Value]                                                                                                       "
+    @echo " [Target]                                                                                                                                   "
+    @echo "     dir                 - Create a working directory for NDM Gen                                                                         "
+    @echo "     setup               - Set the required variables for NDM Gen                                                                         "
+    @echo "     main                - Create a main script for NDM Gen run                                                                           "
+    @echo "     run                 - NDM Gen Run                                                                                                    "
+    @echo "     clean               - clean all directories & files except backup files                                                                "
+    @echo "                                                                                                                                            "
+    @echo " [Sub Option]                                                                                                                               "
+    @echo "     x=1                   - Run in xterm                                         (Default is "0" )                                         "
+    @echo "     tag                   - Add tag , run_directory = NDM_GEN_$(tag) (Default is  NDM_GEN)                         "
+    @echo "     target_design="$(ALL_DESIGN)"    - Select Target Design                        (Default is "ALL_DESIGN")                                 "
+    @echo "                                                                                                                                            "
+    @echo "============================================================================================================================================"
+endef
+
+# from prj.config
+PROJECT             = $(shell projconf.pl -get "PROJECT")
+PRJ_DESIGN          = $(shell projconf.pl -get "PRJ_DESIGN")
+ALL_DESIGN          = $(shell projconf.pl -get "ALL_DESIGN")
+BEOL_LAYER          = $(shell projconf.pl -get "BEOL_LAYER")
+MetalSpec           = $(shell projconf.pl -get "MetalSpec")
+TECH                = $(shell projconf.pl -get "TECH")
+PROCESS             = $(shell projconf.pl -get "PROCESS")
+ABS_PRIM_VERSION    = $(shell projconf.pl -get "ABS_PRIM_VERSION")
+LIB_DIR             = $(shell projconf.pl -get "LIB_DIR")
+OUTFD_DIR           = $(shell projconf.pl -get "OUTFD_DIR")
+COMMON_TCL          = $(shell projconf.pl -get "COMMON_TCL")
+COMMON_TCL_PROCS    = $(shell projconf.pl -get "COMMON_TCL_PROCS")
+PRJ_TOOLS_DIR       = $(shell projconf.pl -get "PRJ_TOOLS_DIR")
+LOG_DIR      = log
+NDM_DIR      = $(RUN_DIR)/NDMs
+NDM_DIR_OLD  = $(RUN_DIR)/NDMs_old
+REPORT_DIR   = report
+SCRIPT_DIR   = scr
+
+TOOL_CMD    = lm_shell_sub
+RUN         = ndm
+
+# RUN TAG Setting
+ifdef tag
+   RUN_TAG = NDM_GEN_$(tag)
+else
+   RUN_TAG = NDM_GEN
+endif
+
+RUN_DIR         = $(CURDIR)/$(RUN_TAG)
+
+# RUN TARGET_DESIGN Setting
+ifdef target_design
+	DESIGN_LIST = $(target_design)
+else
+	DESIGN_LIST = $(ALL_DESIGN)
+endif
+
+define define__DESIGN_LIST_INFO
+	@for i in $(DESIGN_LIST); do                                                      \
+        design=$$i                                                                   ;\
+        SUB_INDB_VER=$$(projconf.pl           -get $${design}_INDB_VER )             ;\
+        SUB_DK_TYPE=$$(projconf.pl            -get $${design}_DK_TYPE)               ;\
+        SUB_TRACK=$$(projconf.pl              -get $${design}_TRACK)                 ;\
+        SUB_ABS_MEM_VERSION=$$(projconf.pl    -get $${design}_ABS_MEM_VERSION)       ;\
+        SUB_ABS_IP_VERSION=$$(projconf.pl     -get $${design}_ABS_IP_VERSION)        ;\
+        echo ""                                                                                                          ;\
+        echo "#== $$design == Information"                                                                               ;\
+        echo "set $$design(NAME)               \"$$design\""                                                                 ;\
+        echo "set $$design(INDB_VER)           \"$$SUB_INDB_VER\""                                                           ;\
+        echo "set $$design(TRACK)              \"$$SUB_TRACK\""                                                              ;\
+        echo "set $$design(DK_TYPE)            \"$$SUB_DK_TYPE\""                                                            ;\
+        echo "set $$design(ABS_MEM_VERSION)    \"$$SUB_ABS_MEM_VERSION\""                                                    ;\
+        echo "set $$design(ABS_IP_VERSION)     \"$$SUB_ABS_IP_VERSION\""                                                     ;\
+        echo ""                                                                                                          ;\
+    done
+endef
+
+#------------------------------------------------------------------------------
+# Target : Print Help Message
+#------------------------------------------------------------------------------
+.PHONY : help
+help :
+	$(HELP_MSG)
+
+#------------------------------------------------------------------------------
+# Target : dir
+#------------------------------------------------------------------------------
+.PHONY : dir
+dir :
+ifneq ($(wildcard $(RUN_DIR)),)
+	@echo "#-------------------------------#"
+	@echo ""
+	@echo "There is a directory that has the same name as ==> \"$(RUN_TAG)\" "
+	@echo ""
+	@echo "#-------------------------------#"
+	@read -p "Should it be deleted  ? (yes or no) : " VAR; \
+	if [ "$$VAR" = "yes" ]; then \
+		rm -rf $(RUN_DIR); \
+	echo	 "$(RUN_DIR) directory deleted."; \
+ 	else \
+	echo	  "$(RUN_DIR) directory not deleted.";  fi
+endif
+	@echo "#-------------------------------#"
+	@echo "# \"$(RUN_TAG)\" Making directories for run       "
+	@echo "#-------------------------------#"
+	@echo ""
+	@if [ ! -d $(RUN_DIR)           		]; then mkdir -p $(RUN_DIR)					; fi ;
+	@if [ ! -d $(RUN_DIR)/$(REPORT_DIR)   	]; then mkdir -p $(RUN_DIR)/$(REPORT_DIR)   ; fi ;
+	@if [ ! -d $(RUN_DIR)/$(NDM_DIR)		]; then mkdir -p $(NDM_DIR)                 ; fi ;
+	@if [ ! -d $(RUN_DIR)/$(LOG_DIR) 		]; then mkdir -p $(RUN_DIR)/$(LOG_DIR)		; fi ;
+	@if [ ! -d $(RUN_DIR)/$(SCRIPT_DIR) 	]; then mkdir -p $(RUN_DIR)/$(SCRIPT_DIR)	; fi ;
+	@if [ ! -d $(RUN_DIR)/$(WORK_DIR) 		]; then mkdir -p $(RUN_DIR)/$(WORK_DIR)		; fi ;
+	@if [ ! -d $(RUN_DIR)/con               ]; then cp -rf ./con $(RUN_DIR)             ; fi ;
+
+#------------------------------------------------------------------------------
+# Target : setupuser_design_setup.tcl
+#------------------------------------------------------------------------------
+.PHONY : setup
+setup : 
+	@echo "####################################################################"  > $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "# PI_TOOL_COMMON_SETUP                                              " >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "####################################################################" >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "# from prj.config"                                                    >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set PROJECT             \"$(PROJECT)\""                               >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set PRJ_DESIGN          \"$(PRJ_DESIGN)\""                            >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set ALL_DESIGN          \"$(ALL_DESIGN)\""                            >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set READ_DESIGN         \"$(DESIGN_LIST)\""                           >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set BEOL_LAYER          \"$(BEOL_LAYER)\""                            >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set MetalSpec           \"$(MetalSpec)\""                             >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set TECH                \"$(TECH)\""                                  >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set PROCESS             \"$(PROCESS)\""                               >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set LIB_DIR             \"$(LIB_DIR)\""                               >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set OUTFD_DIR           \"$(OUTFD_DIR)\""                             >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set COMMON_TCL          \"$(COMMON_TCL)\""                            >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set COMMON_TCL_PROCS    \"$(COMMON_TCL_PROCS)\""                      >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                   					 >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set PRJ_TOOLS_DIR      \"$(PRJ_TOOLS_DIR)\""                          >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                   					 >> $(RUN_DIR)/$(RUN).setup.tcl	
+	@echo "#DIR Information"                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set RUN_DIR              $(RUN_DIR)"                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set REPORT_DIR           $(REPORT_DIR)"                  >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set LOG_DIR              $(LOG_DIR)"                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set SCRIPT_DIR           $(SCRIPT_DIR)"                  >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set NDM_DIR              $(NDM_DIR)"                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set NDM_DIR_OLD          $(NDM_DIR_OLD)"                 >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set ABS_READS           \"$(ABS_READS)\""                >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set ABS_PRIM_VERSION    \"$(ABS_PRIM_VERSION)\""         >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set QUIT_ON_FINISH       $(QUIT_ON_FINISH)"              >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	$(define__DESIGN_LIST_INFO)                                     >> $(RUN_DIR)/$(RUN).setup.tcl
+
+#------------------------------------------------------------------------------
+# Target : main
+#------------------------------------------------------------------------------
+.PHONY : main
+main : dir setup 
+	@echo "making main script to run design compiler"
+	@cat  $(RUN_DIR)/$(RUN).setup.tcl                   > $(RUN_DIR)/$(RUN).run.tcl
+	@cat  $(COMMON_TCL)/NDM_GEN/main.tcl               >> $(RUN_DIR)/$(RUN).run.tcl
+	@rm  $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "#!/bin/csh -f"                                                                    > $(RUN_DIR)/$(RUN).run.csh
+	@echo "setenv SNPSLMD_QUEUE               true "                                        >> $(RUN_DIR)/$(RUN).run.csh
+	@echo "$(TOOL_CMD) -no_log -f ./$(RUN).run.tcl |& tee ./$(LOG_DIR)/ndm_gen.\`date +%y%m%d_%H:%M:%S\`.log"             >> $(RUN_DIR)/$(RUN).run.csh
+	@chmod +x $(RUN_DIR)/$(RUN).run.csh
+
+#----------------------------------------------------------------------
+# Target : export
+#----------------------------------------------------------------------
+# .PHONY : export_scr
+# export_scr :
+# 	@echo "making export_script under run directory to export NDM Gen results later"
+# 	@cat $(COMMON_TCL)/NDM_GEN/export.csh           > $(RUN_DIR)/$(RUN).export.csh
+# 	@chmod +x  $(RUN_DIR)/$(RUN).export.csh
+
+
+#------------------------------------------------------------------------------
+# Target : run
+#------------------------------------------------------------------------------
+.PHONY: run
+run: dir setup main 
+	@echo "#-------------------------------------------------------------------#"
+	@echo "# Main script Run                                                   #"
+	@echo "#-------------------------------------------------------------------#"
+ifdef x
+	@cd $(RUN_DIR); \
+        xterm -fa Monospace -fs 10 -bg steelblue -fg black -geometry 120x15 -T "[NDM_GEN] $(RUN_TAG)" -e "./$(RUN).run.csh" &
+else
+	@cd $(RUN_DIR); ./$(RUN).run.csh;
+endif
+
+#------------------------------------------------------------------------------
+# Target : clean
+#------------------------------------------------------------------------------
+.PHONY : clean
+clean :
+	@echo ".PHONY : clean --> Delete all other filse except makefile"
+	@find . -maxdepth 1 -type d ! -name "makefile" ! -name "con" ! -name "." -exec rm -rf {} \;

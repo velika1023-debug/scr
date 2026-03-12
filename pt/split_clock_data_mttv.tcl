@@ -1,0 +1,131 @@
+################################################################################
+# File Name     : split_clock_data_mttv.tcl
+# Author        : Unknown(DT-PI)
+# Creation Date : 2024-05-13
+# Last Modified : 2024-06-05
+# Version       : v0.2
+# Location      : ${PRJ_PT}/design_scripts/run_sta.tcl
+#-------------------------------------------------------------------------------
+# Description   :
+# 	This file is an example file. This header is used to track the version and
+# 	change history of the file.
+#-------------------------------------------------------------------------------
+# Change Log    :
+# 	v0.1 [2024-05-13] : iskim1001
+#       - Initial Version Release
+# 	v0.2 [2024-06-05] : iskim1001
+#       - Modified to write *CLOCK.rpt for No Clock Pins in certain modes
+#-------------------------------------------------------------------------------
+# Useage        :
+#		Usage...
+#################################################################################
+proc split_clock_data_mttv { args } {
+    parse_proc_arguments -args $args results
+
+    # Parse Argument
+    foreach argname [array names results] {
+        switch $argname {
+            "-clock*" { set clock_outputfile $results($argname) }
+            "-data*"  { set data_outputfile  $results($argname) }
+            default   { set inputfile        $results($argname) }
+        }
+    }
+    # open input file
+    set fp_read [open $inputfile r ]
+    if {! [info exists clock_outputfile ]} { set clock_outputfile ${inputfile}.CLOCK }
+    if {! [info exists data_outputfile  ]} { set data_outputfile  ${inputfile}.DATA   }
+
+    set fp_clock [open ${clock_outputfile} w ]
+    set fp_data  [open ${data_outputfile}  w ]
+
+    set ILLEGAL_CLK_MTTV {}
+    set ILLEGAL_CLK_MTTV_NOCLK_PAT {}
+
+    # search
+    while { (! [eof $fp_read]) } {
+		if {[gets $fp_read line ] != 0 } {
+			switch -regexp -- $line {
+				VIOLATED {
+					if {[get_ports -quiet [lindex $line 0]] != "" } {
+						puts "Warning : MTTV on port - [lindex $line 0 ]"
+						continue
+					}
+
+					set PIN ""
+                    set PIN [get_pins -quiet [lindex $line 0]]
+					#puts "PIN : [get_object_name $PIN]"
+					set CELL    [get_cells -of_object $PIN]
+
+					set INSTANCE_NAME [get_attribute $CELL base_name]
+
+                    if {$PIN != "" } {
+						#remove PAD pins
+						if {[get_attribute $PIN lib_pin_name ] == "PAD" } {
+							puts "Warning_ADF: Remove [get_object_name $PIN] from MTTV list"
+							continue
+						}
+
+
+						#1st INSTANCE_NAME Match
+                        if {([get_attribute -quiet $PIN clocks] != ""             || [get_attribute [get_lib_pins -of_object $PIN] clock] ) || \
+							([string match "CTS_*"             $INSTANCE_NAME]    || [regexp -nocase {clk} $INSTANCE_NAME])                 || \
+                            ([string match "u_clkgate*"        $INSTANCE_NAME]    || [regexp -nocase {clk} $INSTANCE_NAME])                 || \
+                            ([string match "latch*"            $INSTANCE_NAME]    || [regexp -nocase {clk} $INSTANCE_NAME])                 || \
+                            ([string match "MX*" [get_attribute $CELL ref_name ]] && [regexp -nocase {clk} name [get_object_name $PIN]]) } {
+								# 2nd PIN Match
+								if { [get_attribute -quiet $PIN clocks] != ""   } {
+									puts $fp_clock $line
+								} elseif { [regexp -nocase {(.*\/CK$|.*\/CLK$|.*\/ECK$)} [get_object_name $PIN] ]} {
+									lappend ILLEGAL_CLK_MTTV_NOCLK_PAT [get_object_name $PIN]
+									puts $fp_clock $line
+								} else {
+									lappend ILLEGAL_CLK_MTTV [get_object_name $PIN]
+									puts $fp_data $line
+									continue
+								}
+
+						} else {
+							puts $fp_data $line
+						}
+					} else {
+						puts "Remove object from MTTV list since it is not a \'pin\' object : [get_object_name $PIN]"
+					}
+				}
+
+				default {
+					puts $fp_clock $line
+					puts $fp_data  $line
+				}
+			}
+		}
+	}
+
+	if {[llength $ILLEGAL_CLK_MTTV ] > 0 } {
+		puts "Warning : Clock is not propagating to clock tree : Total [llength $ILLEGAL_CLK_MTTV] pins"
+		puts "   Moved these pin from Clock MTTV list to Data MTTV list"
+		foreach PIN $ILLEGAL_CLK_MTTV {
+			puts "   $PIN"
+		}
+	}
+
+	set i 1
+	if {[llength $ILLEGAL_CLK_MTTV_NOCLK_PAT ] > 0 } {
+		puts "Warning_ADF: Clock is not propagating to clock tree : Total [llength $ILLEGAL_CLK_MTTV_NOCLK_PAT] pins"
+		puts "Warning_ADF: Since */CK, */CLK, */ECK are found in the Pin name, they are written as *.CLOCK.rpt."
+		foreach PIN $ILLEGAL_CLK_MTTV_NOCLK_PAT {
+			puts "  $i : $PIN"
+			incr i
+		}
+	}
+
+	close $fp_read
+	close $fp_data
+	close $fp_clock
+}
+
+define_proc_attributes split_clock_data_mttv \
+-info "Read mttv list and split then into clock and data mttv list" \
+-define_args {
+    {-clock "clock MTTV fileName" "" string optional }
+    {-data  "data MTTV fileName" "" string optional }
+    {inputfile "List of MTTV pin list which is generated by \'mttv_check\.tcl'" "" string required } }
