@@ -1,0 +1,252 @@
+################################################################################
+# File Name     : PI_common_makefile
+# Author        : DT-PI
+# Creation Date : 2024-05-08
+# Last Modified : 2025-08-14
+# Version       : v1.1
+# Location      : ${COMMON_TCL}/PI_common_makefile
+#-------------------------------------------------------------------------------
+# Description   : Organizing and collecting variables used in common_makefile in PI tool
+#-------------------------------------------------------------------------------
+# Change Log    :
+#   v0.1 [2024-05-08] : iskim1001
+#       - Initial Version Release
+#   v0.2 [2024-05-16] : iskim1001
+#       - POST-related variables are used together by PI and PD,
+#         but an agreement was reached with DT-PD to use the variables separately.
+#       - Before                         -> After
+#           POST_$(DESIGN)_REVISION_PEX  -> POST_$(DESIGN)_REVISION
+#           POST_$(DESIGN)_STEP_PEX      -> POST_$(DESIGN)_ECO_NUM
+#   v0.3 [2024-06-03] : iskim1001
+#       - STA_REF_VER*, GLITCH_REV_VER* CPC_REF_VER variables were
+#         moved to ${COMMON_PT_STA}/common_makefile.
+#   v0.4 [2024-06-04] : iskim1001
+#       - SUB_NET_REVISION_PNRIN Modify
+#   v0.5 [2024-06-10] : iskim1001
+#       - *_DIR Value Change ( for ZRM670_2M )
+#           Before : ./log
+#           After  : log
+#   v0.6 [2024-07-11] : iskim1001
+#       - Add INDB_TOOL variable according to indb type
+#   v0.7 [2024-10-31] : iskim1001
+#       - SDC_VER Variable Override ( Requset N1B0 Project )
+#   v0.8 [2025-01-20] : jaeeun1115
+#       - is_etm or is_hsc=1 -> is_flat=1
+#   v0.9 [2025-02-18] : jjh8744
+#       - Add COMMON_CON_VERSION, COMMON_CON_DIR
+#   v1.0 [2025-07-18] : ljh0914
+#       - Add COMMON_FM_ECO, PRJ_FM_ECO
+#   v1.1 [2025-08-14] : jblee0513
+#       - Add COMMON_FC_SYN, PRJ_FC_SYN
+#
+#-------------------------------------------------------------------------------
+# Useage        :
+#       Usage...
+#################################################################################
+
+###############################################################################
+# PI Tool Common
+###############################################################################
+BACKUP_DATE  = $(shell date +%m%d_%H:%M:%S  )
+DATE         = $(shell date +%y%m%d_%H%M  )
+USER         = $(shell whoami  )
+LOG_DIR      = log
+OUTPUT_DIR   = output
+REPORT_DIR   = report
+CON_DIR      = con
+
+###############################################################################
+# Parsing Variable from prj.config & ${DESIGN}.config
+###############################################################################
+# from prj.config
+PROJECT             = $(shell projconf.pl -get "PROJECT")
+PRJ_DESIGN          = $(shell projconf.pl -get "PRJ_DESIGN")
+ALL_DESIGN          = $(shell projconf.pl -get "ALL_DESIGN")
+BEOL_LAYER          = $(shell projconf.pl -get "BEOL_LAYER")
+MetalSpec           = $(shell projconf.pl -get "MetalSpec")
+TECH                = $(shell projconf.pl -get "TECH")
+PROCESS             = $(shell projconf.pl -get "PROCESS")
+DEFAULT_CORNER      = $(shell projconf.pl -get "DEFAULT_CORNER")
+DEFAULT_LIB_CORNER  = $(shell projconf.pl -get "DEFAULT_LIB_CORNER")
+IMPL_TOOL_ENV       = $(shell projconf.pl -get "IMPL_TOOL_ENV")
+ABS_PRIM_VERSION    = $(shell projconf.pl -get "ABS_PRIM_VERSION")
+LIB_DIR             = $(shell projconf.pl -get "LIB_DIR")
+OUTFD_DIR           = $(shell projconf.pl -get "OUTFD_DIR")
+
+# from ${DESIGN}.config
+HIER_DESIGN         = $(shell projconf.pl -get "$(DESIGN)_HIER_DESIGN")
+ABS_IP_VERSION      = $(shell projconf.pl -get "$(DESIGN)_ABS_IP_VERSION")
+ABS_MEM_VERSION     = $(shell projconf.pl -get "$(DESIGN)_ABS_MEM_VERSION")
+DK_TYPE             = $(shell projconf.pl -get "$(DESIGN)_DK_TYPE")
+CK_TYPE             = $(shell projconf.pl -get "$(DESIGN)_CK_CELL_TYPE")
+TRACK               = $(shell projconf.pl -get "$(DESIGN)_TRACK")
+INDB_VER            = $(shell projconf.pl -get "$(DESIGN)_INDB_VER")
+PNR_TOOL            = $(shell projconf.pl -get "$(DESIGN)_PNR_TOOL")
+#240710-TMEP_ADD
+SYN_TOOL            = $(shell projconf.pl -get "$(DESIGN)_SYN_TOOL")
+BIST_TOOL           = $(shell projconf.pl -get "$(DESIGN)_BIST_TOOL")
+SCAN_TOOL           = $(shell projconf.pl -get "$(DESIGN)_SCAN_TOOL")
+STA_TOOL            = $(shell projconf.pl -get "$(DESIGN)_STA_TOOL")
+
+
+SDC_VER             = $(shell projconf.pl -get "$(DESIGN)_SDC_VER")
+SYN_NET_REVISION    = $(shell projconf.pl -get "PRE_$(DESIGN)_REVISION_SYN")
+BIST_NET_REVISION   = $(shell projconf.pl -get "PRE_$(DESIGN)_REVISION_BIST")
+SCAN_NET_REVISION   = $(shell projconf.pl -get "PRE_$(DESIGN)_REVISION_SCAN")
+PNRIN_NET_REVISION  = $(shell projconf.pl -get "PRE_$(DESIGN)_REVISION_PNRIN")
+
+POST_NET_REVISION   = $(shell projconf.pl -get "POST_$(DESIGN)_REVISION")
+POST_ECO_NUM        = $(shell projconf.pl -get "POST_$(DESIGN)_ECO_NUM")
+
+
+# from prj.config ( COMMON variable )
+COMMON_PT           = $(shell projconf.pl -get "COMMON_PT_STA")
+COMMON_DC_SYN       = $(shell projconf.pl -get "COMMON_DC_SYN")
+COMMON_FC_SYN       = $(shell projconf.pl -get "COMMON_FC_SYN")
+COMMON_DC_LDRC      = $(shell projconf.pl -get "COMMON_DC_LDRC")
+COMMON_PT_GCA       = $(shell projconf.pl -get "COMMON_PT_GCA")
+COMMON_VCLP         = $(shell projconf.pl -get "COMMON_VCLP")
+COMMON_FM_EQ        = $(shell projconf.pl -get "COMMON_FM_EQ")
+COMMON_FM_ECO       = $(shell projconf.pl -get "COMMON_FM_ECO")
+COMMON_SDC          = $(shell projconf.pl -get "COMMON_SDC")
+COMMON_TCL          = $(shell projconf.pl -get "COMMON_TCL")
+COMMON_TCL_PROCS    = $(shell projconf.pl -get "COMMON_TCL_PROCS")
+COMMON_CON_VERSION  = $(shell projconf.pl -get "COMMON_CON_VERSION")
+
+# from prj.config ( PRJ variable )
+PRJ_PT              = $(shell projconf.pl -get "PRJ_PT_STA")
+PRJ_DC              = $(shell projconf.pl -get "PRJ_DC_SYN")
+PRJ_FC              = $(shell projconf.pl -get "PRJ_FC_SYN")
+PRJ_DC_LDRC         = $(shell projconf.pl -get "PRJ_DC_LDRC")
+PRJ_GCA             = $(shell projconf.pl -get "PRJ_PT_GCA")
+PRJ_VCLP            = $(shell projconf.pl -get "PRJ_VCLP")
+PRJ_FM_EQ           = $(shell projconf.pl -get "PRJ_FM_EQ")
+PRJ_FM_ECO          = $(shell projconf.pl -get "PRJ_FM_ECO")
+PRJ_TOOLS_DIR       = $(shell projconf.pl -get "PRJ_TOOLS_DIR")
+export PRJ_PT
+
+# Requset N1B0 Project - 241031
+ifdef sdc_ver
+    SDC_VER = $(sdc_ver)
+endif
+
+COMMON_CON_DIR      = $(OUTFD_DIR)/common/$(COMMON_CON_VERSION)
+
+IMPL_SDC_DIR        = $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/impl_sdc/$(SDC_VER)
+PNR_SDC_DIR         = $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/pnrin/$(PNRIN_NET_REVISION)/sdc
+
+ifeq ($(is_etm),1)
+    is_flat=1
+endif
+ifeq ($(is_hsc),1)
+    is_flat=1
+endif
+
+ifeq ($(is_flat),1)
+    ifeq ($(HIER_DESIGN),NONE)
+        READ_DESIGN = $(DESIGN)
+    else
+        READ_DESIGN = $(DESIGN) $(HIER_DESIGN)
+    endif
+else
+    READ_DESIGN = $(DESIGN)
+endif
+
+define define__PI_TOOL_COMMON_SETUP
+# from prj.config
+set PROJECT             "$(PROJECT)"
+set PRJ_DESIGN          "$(PRJ_DESIGN)"
+set ALL_DESIGN          "$(ALL_DESIGN)"
+set BEOL_LAYER          "$(BEOL_LAYER)"
+set MetalSpec           "$(MetalSpec)"
+set TECH                "$(TECH)"
+set PROCESS             "$(PROCESS)"
+set DEFAULT_LIB_CORNER  "$(DEFAULT_LIB_CORNER)"
+set IMPL_TOOL_ENV       "$(IMPL_TOOL_ENV)"
+set ABS_PRIM_VERSION    "$(ABS_PRIM_VERSION)"
+set LIB_DIR             "$(LIB_DIR)"
+set OUTFD_DIR           "$(OUTFD_DIR)"
+
+# from prj.config ( COMMON variable )
+set COMMON_PT           "$(COMMON_PT)"
+set COMMON_DC_SYN       "$(COMMON_DC_SYN)"
+set COMMON_FC_SYN       "$(COMMON_FC_SYN)"
+set COMMON_DC_LDRC      "$(COMMON_DC_LDRC)"
+set COMMON_PT_GCA       "$(COMMON_PT_GCA)"
+set COMMON_VCLP         "$(COMMON_VCLP)"
+set COMMON_FM_EQ        "$(COMMON_FM_EQ)"
+set COMMON_FM_ECO       "$(COMMON_FM_ECO)"
+set COMMON_SDC          "$(COMMON_SDC)"
+set COMMON_TCL          "$(COMMON_TCL)"
+set COMMON_TCL_PROCS    "$(COMMON_TCL_PROCS)"
+set COMMON_CON_DIR      "$(COMMON_CON_DIR)"
+
+# from prj.config ( PRJ variable )
+set PRJ_PT              "$(PRJ_PT)"
+set PRJ_DC              "$(PRJ_DC)"
+set PRJ_FC              "$(PRJ_FC)"
+set PRJ_DC_LDRC         "$(PRJ_DC_LDRC)"
+set PRJ_GCA             "$(PRJ_GCA)"
+set PRJ_VCLP            "$(PRJ_VCLP)"
+set PRJ_FM_EQ           "$(PRJ_FM_EQ)"
+set PRJ_FM_ECO          "$(PRJ_FM_ECO)"
+set PRJ_TOOLS_DIR       "$(PRJ_TOOLS_DIR)"
+
+
+set IMPL_SDC_DIR        "$(IMPL_SDC_DIR)"
+set PNR_SDC_DIR         "$(PNR_SDC_DIR)"
+
+set READ_DESIGN         "$(READ_DESIGN)"
+
+
+endef
+export define__PI_TOOL_COMMON_SETUP
+
+
+define define__READ_DESIGN_INFO
+    @for i in $(READ_DESIGN); do                                                      \
+        design=$$i                                                                   ;\
+        SUB_INDB_VER=$$(projconf.pl           -get $${design}_INDB_VER )             ;\
+        SUB_SDC_VER=$$(projconf.pl            -get $${design}_SDC_VER )              ;\
+        SUB_NET_REVISION_SYN=$$(projconf.pl   -get PRE_$${design}_REVISION_SYN)      ;\
+        SUB_NET_REVISION_BIST=$$(projconf.pl  -get PRE_$${design}_REVISION_BIST)     ;\
+        SUB_NET_REVISION_SCAN=$$(projconf.pl  -get PRE_$${design}_REVISION_SCAN)     ;\
+        SUB_NET_REVISION_PNRIN=$$(projconf.pl -get PRE_$${design}_REVISION_PNRIN)    ;\
+        SUB_PNR_TOOL=$$(projconf.pl           -get $${design}_PNR_TOOL)              ;\
+        SUB_DK_TYPE=$$(projconf.pl            -get $${design}_DK_TYPE)               ;\
+        SUB_TRACK=$$(projconf.pl              -get $${design}_TRACK)                 ;\
+        SUB_NET_REVISION_POST=$$(projconf.pl  -get POST_$${design}_REVISION)         ;\
+        SUB_NET_ECO_NUM=$$(projconf.pl        -get POST_$${design}_ECO_NUM)          ;\
+        SUB_ABS_MEM_VERSION=$$(projconf.pl    -get $${design}_ABS_MEM_VERSION)       ;\
+        SUB_ABS_IP_VERSION=$$(projconf.pl     -get $${design}_ABS_IP_VERSION)        ;\
+        SUB_SYN_TOOL=$$(projconf.pl           -get $${design}_SYN_TOOL)              ;\
+        SUB_BIST_TOOL=$$(projconf.pl          -get $${design}_BIST_TOOL)             ;\
+        SUB_SCAN_TOOL=$$(projconf.pl          -get $${design}_SCAN_TOOL)             ;\
+        SUB_STA_TOOL=$$(projconf.pl           -get $${design}_STA_TOOL)              ;\
+        echo ""                                                                                                              ;\
+        echo "#== $$design == Information"                                                                                   ;\
+        echo "set $$design(NAME)               \"$$design\""                                                                 ;\
+        echo "set $$design(INDB_VER)           \"$$SUB_INDB_VER\""                                                           ;\
+        echo "set $$design(SYN_TOOL)           \"$$SUB_SYN_TOOL\""                                                           ;\
+        echo "set $$design(BIST_TOOL)          \"$$SUB_BIST_TOOL\""                                                          ;\
+        echo "set $$design(SCAN_TOOL)          \"$$SUB_SCAN_TOOL\""                                                          ;\
+        echo "set $$design(STA_TOOL)           \"$$SUB_STA_TOOL\""                                                           ;\
+        echo "set $$design(TRACK)              \"$$SUB_TRACK\""                                                              ;\
+        echo "set $$design(DK_TYPE)            \"$$SUB_DK_TYPE\""                                                            ;\
+        echo "set $$design(ABS_MEM_VERSION)    \"$$SUB_ABS_MEM_VERSION\""                                                    ;\
+        echo "set $$design(ABS_IP_VERSION)     \"$$SUB_ABS_IP_VERSION\""                                                     ;\
+        echo "set $$design(SDC_VER)            \"$$SUB_SDC_VER\""                                                            ;\
+        echo "set $$design(IMPL_SDC_DIR)       \"$(OUTFD_DIR)/$$design/$$SUB_INDB_VER/impl_sdc/$$SUB_SDC_VER\""              ;\
+        echo "set $$design(PNR_SDC_DIR)        \"$(OUTFD_DIR)/$$design/$$SUB_INDB_VER/pnrin/$$SUB_NET_REVISION_PNRIN/sdc\""  ;\
+        echo ""                                                                                                              ;\
+        echo "set $$design(NET_REVISION_SYN)   \"$$SUB_NET_REVISION_SYN\""                                                   ;\
+        echo "set $$design(NET_REVISION_BIST)  \"$$SUB_NET_REVISION_BIST\""                                                  ;\
+        echo "set $$design(NET_REVISION_SCAN)  \"$$SUB_NET_REVISION_SCAN\""                                                  ;\
+        echo "set $$design(NET_REVISION_PNRIN) \"$$SUB_NET_REVISION_PNRIN\""                                                 ;\
+        echo ""                                                                                                              ;\
+        echo "set $$design(PNR_TOOL)           \"$$SUB_PNR_TOOL\""                                                           ;\
+        echo "set $$design(NET_REVISION_POST)  \"$$SUB_NET_REVISION_POST\""                                                  ;\
+        echo "set $$design(NET_ECO_NUM)        \"$$SUB_NET_ECO_NUM\""                                                        ;\
+        echo ""                                                                                                              ;\
+    done
+endef

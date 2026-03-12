@@ -1,0 +1,26 @@
+# [PATH_CONFLICT] Original logical path: ./makefile
+# [SOURCE_TXT] 019b72eb-13ed-711d-a4ac-d0a2e1287b0c.txt
+# [NOTE] Same PATH appeared with different content, so this variant was saved separately.
+# ------------------------------------------------#
+# Description : Makefile for Synthesis
+# ------------------------------------------------#
+# Define current design
+# ------------------------------------------------#
+DESIGN           = AUTO_DETECT
+
+#------------------------------------------------#
+# link dk list  " prim mem ip "
+#------------------------------------------------#
+ABS_READS       = "prim mem ip"
+
+#------------------------------------------------#
+# Choose whetner to quit
+#------------------------------------------------#
+QUIT_ON_FINISH  = 0
+
+#------------------------------------------------#
+# Default
+#------------------------------------------------#
+.PHONY : default
+default : run
+include $(COMMON_IMPL_DIR)/common_fc_syn/common_makefile

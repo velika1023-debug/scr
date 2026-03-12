@@ -1,0 +1,190 @@
+################################################################################
+# File Name     : PI_common_makefile_for_PD_STA
+# Author        : DT-PI
+# Creation Date : 2024-05-08
+# Last Modified : 2025-04-22
+# Version       : v0.6
+# Location      : ${COMMON_TCL}/PI_common_makefile_for_PD_STA
+#-------------------------------------------------------------------------------
+# Description   : Organizing and collecting variables used in common_makefile in PI tool
+#-------------------------------------------------------------------------------
+# Change Log    :
+# 	v0.1 [2024-05-08] : iskim1001
+#       - Initial Version Release
+#   v0.2 [2024-05-28] : iskim1001
+#   	- define__READ_DESIGN_INFO Modify
+#   v0.3 [2024-06-04] : iskim1001
+#   	- Test comment Remove
+#   v0.4 [2024-06-10] : iskim1001
+#   	- Modif if statement
+#   v0.5 [2024-07-16] : iskim1001
+#   	- Modify  SUB_NET_ECO_NUM
+#   		Before : SUB_NET_ECO_NUM=$$(projconf.pl  -get POST_$${design}_STEP_PSI)
+#   		Before : SUB_NET_ECO_NUM=$$(projconf.pl  -get POST_$${design}_STEP_PEX)
+#   		After  : SUB_NET_ECO_NUM=$(SRC_psi)
+#   		After  : SUB_NET_ECO_NUM=$(SRC_pex)
+#   v0.6 [2025-04-22] : jaeeun1115
+#   	- Add COMMON_CON
+#-------------------------------------------------------------------------------
+# Useage        :
+#		Usage...
+#################################################################################
+
+LOG_DIR      = ./log
+OUTPUT_DIR   = ./output
+REPORT_DIR   = ./report
+CON_DIR      = ./con
+
+###############################################################################
+#
+###############################################################################
+PROJECT             = $(shell grep " PROJECT "                      sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+INDB_VER            = $(shell grep " $(DESIGN)_INDB_VER "           sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+SDC_VER             = $(shell grep " $(DESIGN)_SDC_VER "            sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+PNR_TOOL            = $(shell grep " $(DESIGN)_PNR_TOOL "           sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+
+COMMON_PT           = $(shell grep " COMMON_PT_STA "                sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+COMMON_SDC          = $(shell grep " COMMON_SDC "                   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+COMMON_TCL          = $(shell grep " COMMON_TCL "                   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+COMMON_TCL_PROCS    = $(shell grep " COMMON_TCL_PROCS "             sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+COMMON_CON_VERSION    = $(shell grep " COMMON_CON_VERSION "             sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+PRJ_PT              = $(shell grep " PRJ_PT_STA "                   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+PRJ_TOOLS_DIR       = $(shell grep " PRJ_TOOLS_DIR "                sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+
+TECH                = $(shell grep " TECH "                         sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+OUTFD_DIR           = $(shell grep " OUTFD_DIR "                    sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+IMPL_TOOL_ENV       = $(shell grep " IMPL_TOOL_ENV "                sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+MetalSpec           = $(shell grep " MetalSpec "                    sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+PROCESS             = $(shell grep " PROCESS "                      sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+BEOL_LAYER          = $(shell grep " BEOL_LAYER "                   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+TRACK               = $(shell grep " $(DESIGN)_TRACK "              sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+
+LIB_DIR             = $(shell grep " LIB_DIR "                      sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+ABS_PRIM_VERSION    = $(shell grep " ABS_PRIM_VERSION "             sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+ABS_IP_VERSION      = $(shell grep " $(DESIGN)_ABS_IP_VERSION "     sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+ABS_MEM_VERSION     = $(shell grep " $(DESIGN)_ABS_MEM_VERSION "    sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+
+PRJ_DESIGN          = $(shell grep " PRJ_DESIGN "                   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+ALL_DESIGN          = $(shell grep " ALL_DESIGN "                   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+STA_REF_VER         = $(shell grep " STA_REF_VER "                  sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+STA_REF_VER2        = $(shell grep " STA_REF_VER2 "                 sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+GLITCH_REF_VER      = $(shell grep " GLITCH_REF_VER "               sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+GLITCH_REF_VER2     = $(shell grep " GLITCH_REF_VER2 "              sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+CPC_REF_VER         = $(shell grep " CPC_REF_VER "                  sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+CK_TYPE             = $(shell grep " $(DESIGN)_CK_CELL_TYPE "       sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+DK_TYPE             = $(shell grep " $(DESIGN)_DK_TYPE "            sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+PNRIN_NET_REVISION  = $(shell grep "PRE_$(DESIGN)_REVISION_PNRIN "  sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+HIER_DESIGN         = $(shell grep "$(DESIGN)_HIER_DESIGN "         sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+
+ifeq ($(filter sta_eco dmsa_eco, $(PD_TARGET)), $(PD_TARGET))
+    POST_ECO_NUM        = $(shell projconf.pl -get "POST_$(DESIGN)_STEP_PEX")
+    POST_NET_REVISION   = $(shell grep " POST_$(DESIGN)_REVISION_PEX "  sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+else ifeq ($(filter sta_psi, $(PD_TARGET)), $(PD_TARGET))
+    POST_ECO_NUM        = $(shell projconf.pl -get "POST_$(DESIGN)_STEP_PSI")
+    POST_NET_REVISION   = $(shell grep " POST_$(DESIGN)_REVISION_PSI" sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+else
+    $(error <ADF_ERROR> PD_TARGET($(PD_TARGET)) is not valid value.)
+endif
+
+IMPL_SDC_DIR        = $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/impl_sdc/$(SDC_VER)
+PNR_SDC_DIR = $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/pnrin/$(PNRIN_NET_REVISION)/sdc
+COMMON_CON_DIR      = $(OUTFD_DIR)/common/$(COMMON_CON_VERSION)
+
+
+define define__PI_TOOL_COMMON_SETUP
+# from prj.config
+set PROJECT             "$(PROJECT)"
+set PRJ_DESIGN          "$(PRJ_DESIGN)"
+set ALL_DESIGN          "$(ALL_DESIGN)"
+set BEOL_LAYER          "$(BEOL_LAYER)"
+set MetalSpec           "$(MetalSpec)"
+set TECH                "$(TECH)"
+set PROCESS             "$(PROCESS)"
+set DEFAULT_LIB_CORNER  "$(DEFAULT_LIB_CORNER)"
+set IMPL_TOOL_ENV       "$(IMPL_TOOL_ENV)"
+set ABS_PRIM_VERSION    "$(ABS_PRIM_VERSION)"
+set LIB_DIR             "$(LIB_DIR)"
+set OUTFD_DIR           "$(OUTFD_DIR)"
+
+# from prj.config ( COMMON variable )
+set COMMON_PT           "$(COMMON_PT)"
+set COMMON_SDC          "$(COMMON_SDC)"
+set COMMON_TCL          "$(COMMON_TCL)"
+set COMMON_TCL_PROCS    "$(COMMON_TCL_PROCS)"
+set COMMON_CON_VERSION  "$(COMMON_CON_VERSION)"
+set COMMON_CON_DIR      "$(COMMON_CON_DIR)"
+
+
+# from prj.config ( PRJ variable )
+set PRJ_PT             "$(PRJ_PT)"
+set PRJ_TOOLS_DIR      "$(PRJ_TOOLS_DIR)"
+
+# for-STA
+set STA_REF_VER        "$(STA_REF_VER)"
+set STA_REF_VER2       "$(STA_REF_VER2)"
+set GLITCH_REF_VER     "$(GLITCH_REF_VER)"
+set GLITCH_REF_VER2    "$(GLITCH_REF_VER2)"
+set CPC_REF_VER        "$(CPC_REF_VER)"
+
+set IMPL_SDC_DIR        "$(IMPL_SDC_DIR)"
+set PNR_SDC_DIR         "$(PNR_SDC_DIR)"
+endef
+export define__PI_TOOL_COMMON_SETUP
+
+
+
+ifeq ($(is_flat),1)
+    ifeq ($(HIER_DESIGN),NONE)
+        READ_DESIGN = $(DESIGN)
+    else
+        READ_DESIGN = $(DESIGN) $(HIER_DESIGN)
+    endif
+else
+    READ_DESIGN = $(DESIGN)
+endif
+
+
+INDB_VER            = $(shell grep " $(DESIGN)_INDB_VER "           sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+SDC_VER             = $(shell grep " $(DESIGN)_SDC_VER "            sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+PNR_TOOL            = $(shell grep " $(DESIGN)_PNR_TOOL "           sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')
+
+define define__READ_DESIGN_INFO
+    @for i in $(READ_DESIGN); do                                                      \
+        design=$$i                                                                   ;\
+        SUB_INDB_VER=$$(              grep " $${design}_INDB_VER "            sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_NET_REVISION_SYN=$$(      grep " PRE_$${design}_REVISION_SYN "    sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_NET_REVISION_BIST=$$(     grep " PRE_$${design}_REVISION_BIST "   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_NET_REVISION_SCAN=$$(     grep " PRE_$${design}_REVISION_SCAN "   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_NET_REVISION_PNRIN=$$(    grep " PRE_$${design}_REVISION_PNRIN "  sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_PNR_TOOL=$$(              grep " $${design}_PNR_TOOL "            sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_DK_TYPE=$$(               grep " $${design}_DK_TYPE "             sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_TRACK=$$(                 grep " $${design}_TRACK "               sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_ABS_MEM_VERSION=$$(       grep " $${design}_ABS_MEM_VERSION "     sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+        SUB_ABS_IP_VERSION=$$(        grep " $${design}_ABS_IP_VERSION "      sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')     ;\
+		if [ "$(PD_TARGET)" = "sta_eco" ] || [ "$(PD_TARGET)" = "dmsa_eco" ] ; then                                                       \
+            SUB_NET_REVISION_POST=$$(     grep " POST_$${design}_REVISION_PEX "   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')  ;\
+            SUB_NET_ECO_NUM=$(SRC_pex)      ;\
+        elif [ "$(PD_TARGET)" = "sta_psi" ] ; then                                                                                       \
+            SUB_NET_REVISION_POST=$$(     grep " POST_$${design}_REVISION_PSI "   sophia_vars.tcl | awk '{print $$3}' | sed 's/"//g')  ;\
+            SUB_NET_ECO_NUM=$(SRC_psi)      ;\
+        fi;                                                                           \
+        echo ""                                                                      ;\
+        echo "#== $$design == Information"                                           ;\
+        echo "set $$design(NAME)               $$design"                         ;\
+        echo "set $$design(INDB_VER)           $$SUB_INDB_VER"                   ;\
+        echo "set $$design(TRACK)              $$SUB_TRACK"                      ;\
+        echo "set $$design(DK_TYPE)            $$SUB_DK_TYPE"                    ;\
+        echo "set $$design(ABS_MEM_VERSION)    $$SUB_ABS_MEM_VERSION"            ;\
+        echo "set $$design(ABS_IP_VERSION)     $$SUB_ABS_IP_VERSION"             ;\
+        echo ""                                                                  ;\
+        echo "set $$design(NET_REVISION_SYN)   $$SUB_NET_REVISION_SYN"           ;\
+        echo "set $$design(NET_REVISION_BIST)  $$SUB_NET_REVISION_BIST"          ;\
+        echo "set $$design(NET_REVISION_SCAN)  $$SUB_NET_REVISION_SCAN"          ;\
+        echo "set $$design(NET_REVISION_PNRIN) $$SUB_NET_REVISION_PNRIN"         ;\
+        echo ""                                                                  ;\
+        echo "set $$design(PNR_TOOL)           $$SUB_PNR_TOOL"                   ;\
+        echo "set $$design(NET_REVISION_POST)  $$SUB_NET_REVISION_POST"          ;\
+        echo "set $$design(NET_ECO_NUM)        $$SUB_NET_ECO_NUM"                ;\
+        echo ""                                                                  ;\
+    done
+endef

@@ -1,0 +1,544 @@
+# [PATH_CONFLICT] Original logical path: ./common_makefile
+# [SOURCE_TXT] 019b72eb-1366-7073-b81a-b16f280d6641.txt
+# [NOTE] Same PATH appeared with different content, so this variant was saved separately.
+###################################################################################################
+# File               : common_makefile                                                            #
+# Author             : ADT-DT (jyjang)                                                            #
+# Author2            : ADT-DT (jmpark)                                                            #
+# Description        : makefile for running synthesis                                             #
+# Usage              :                                                                            #
+# Init Release Date  : 2023.03.31                                                                 #
+# Last Update  Date  : 2023.03.31                                                                 #
+# Last Update  Date  : 2024.01.15 				                                                  #
+# Last Update  Date  : 2024.05.24 				                                                  #
+# Last Update  Date  : 2024.05.28 synthesis guide                                                 #
+# Last Update  Date  : 2024.08.30 Export dir change                                               #
+# Last Update  Date  : 2024.10.28 Commenting out duplicate variables                              #
+# Last Update  Date  : 2024.11.04 Commenting out duplicate variables (PI_common_makefile)         #
+# Last Update  Date  : 2024.11.08 change dc_shell -> dc_shell_sub 						          #
+# Last Update  Date  : 2024.11.14 iskim1001, Add af option, add SNPSLMD_QUEUE Variable            #
+# Last Update  Date  : 2025.02.18 ADD Gen3 export flow                                            #
+# Last Update  Date  : 2025.09.05 Add dc_scan
+# Script Version     : 0.6                                                                        #
+# Revision History   :                                                                            #
+#         2023.03.31 - first released                                                             #
+###################################################################################################
+SHELL = /bin/sh
+
+#----------------------------------------------------------------------
+# Help messages
+#----------------------------------------------------------------------
+define HELP_MSG
+    @echo "============================================================================================================================================"
+    @echo " Makefile for SYN - Design-Compiler                                                                										   "
+    @echo "                                                                                                   										   "
+    @echo " Usage : make [Target] [Option=Value]                                                              										   "
+    @echo " Target:                                                                                           										   "
+    @echo "     info             	- Shows Information before proceeding with run                               										   "
+    @echo "     dir              	- Create reports logs container Directory                                    										   "
+    @echo "     setup            	- Set the required variables for Synthesis                                          								   "
+    @echo "     main             	- Create a main script untill Synthesis run                                         								   "
+    @echo "     run              	- Synthesis Run                                                                     								   "
+    @echo "     export           	- export result to outfeed directory                                         										   "
+    @echo "     clean            	- clean all directories & files except backup files                          										   "
+    @echo "                      	                                                                             										   "
+    @echo " Sub Option  		 	                                                                             										   "
+	@echo "     v=V-2023.12-SP5 	  - User define TOOL VER                                 (Default is prj.config )                 										   "
+	@echo "     spg=1                 - Enable of SPG File                                   (Default is "0" )                 										   "
+	@echo "     dcnxt=1               - Enable of DC_NXT                                     (Default is "0" )                 										   "
+	@echo "     mcmm=1                - Enable of MCMM                                       (Default is "0" )                 										   "
+    @echo "     is_flat=1             - sub design lib setup                                 (Default is "0" )                                   "
+	@echo "     gen_elab=1            - Generation of elab ddc                               (Default is "0" )                 										   "
+	@echo "     gen_compile_rpt=1     - Generation of compile rpt                            (Default is "0" )                 										   "
+	@echo "     x=1                   - Run in xterm                                         (Default is "0" )                 										   "
+	@echo "     tag                   - Add tag , run_directory = $(NET_REVISION)_$(tag) (Default is  $(NET_REVISION))							   "
+    @echo "     indb                  - Format of input DB    (ddc or rtl or net)            (Default is "rtl")                 										   "
+	@echo "     debug=1               - Enable of Debug Mode                                 (Default is "0", 0-Normal Mode  , 1-Until elaboration , 2-Until DK read    "
+    @echo "     af=HDL-Compiler       - Specify additional license feature needed.           (Default is "" ) "
+    @echo "                                                                                                   										   "
+    @echo " Synthesis Guide  		 	                                                                             										   "
+	@echo "    set_verification_priority - Sets the verification_priority attribute on specified designs, cells, or references, indicating the level of optimization during compile_ultra"
+	@echo "        -> if you want, modify ${RUN_DIR}/con/set_svp.tcl"
+	@echo "    if you want congestion rpt, modify variable RPT_CONGESTION in \"user_design_setup.tcl\""
+	@echo "        -> note, congestion report takes a long time "
+    @echo "============================================================================================================================================"
+endef
+
+#------------------------------------------------------------------------------
+# Parsing Directory
+#------------------------------------------------------------------------------
+
+#Design parsing
+ifeq ($(DESIGN),AUTO_DETECT)
+DESIGN := $(shell /bin/pwd | sed -e "s/.*\/SOC\///" | sed -e "s/\/.*//")
+endif
+
+W_DIR := $(shell /bin/pwd | sed -e "s/.*\/SOC\///" | sed -e "s/.*\///")
+
+# N1B0
+TOOL_NAME = $(shell basename $(PWD))
+
+
+
+# Date & Directory
+DATE        = `date +%y%m%d_%H%M`
+USER        = `whoami`
+REPORT_DIR  = report
+OUTPUT_DIR  = output
+LOG_DIR     = log
+CON_DIR     = con
+RUN         = syn
+
+# MODIFY
+COMMON_TCL  = $(shell projconf.pl -get "COMMON_TCL")
+include $(COMMON_TCL)/PI_common_makefile
+
+#------------------------------------------------------------------------------
+# Parsing Variable from .config
+#------------------------------------------------------------------------------
+COMMON_DC_PRJ_SYN 	= $(shell projconf.pl -get "PRJ_DC_SYN")
+
+# add jmpark 240524
+TOOL_VER            = $(shell projconf.pl -get "TOOL_VER_DC")
+ifeq ($(shell projconf.pl -get "TOOL_VER_SPYGLASS"),NA)
+	TOOL_VER_SPY_GLASS  = W-2024.09-SP2-4
+else
+	TOOL_VER_SPY_GLASS  = $(shell projconf.pl -get "TOOL_VER_SPYGLASS")
+endif
+
+PROJECT_ENV         = $(shell projconf.pl -get "PROJECT_ENV")
+
+ifdef v
+   TOOL_VER = $(v)
+endif
+#------------------------------------------------------------------------------
+# NET_REVISION :
+#   - pre  :  PRE_${DESIGN}_REVISION_{SYN,BIST,SCAN}
+#   - post : POST_${DESIGN}_REVISION
+#------------------------------------------------------------------------------
+ifeq ($(indb),rtl)
+	INDB_TYPE          = $(indb)
+else ifeq ($(indb),ddc)
+	INDB_TYPE 	  	  = $(indb)
+else ifeq ($(indb),net)
+	INDB_TYPE 	  	  = $(indb)
+else
+	INDB_TYPE          = "N/A"
+endif
+
+
+RPT_POSTFIX 	= $(RUN_TAG)
+EXPORT_DIR 		= $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/$(TOOL_NAME)/$(EXP_TAG)
+SYN_REF_DIR     = $(COMMON_DC_PRJ_SYN)/scripts
+RUN_DIR = $(CURDIR)/$(RUN_TAG)
+
+#----------------------------------------------------------------------
+# Running option
+#----------------------------------------------------------------------
+
+#- Default Setting
+is_flat = 0
+dcnxt = 0
+mcmm = 0
+spg = 0
+debug = 0
+read_ctl = 0
+gen_elab = 0
+gen_compile_rpt = 0
+
+# 24-11-14 Add iskim1001 START
+ifdef af
+    AF = --AF $(af)
+else
+    AF =
+endif
+# 24-11-14 Add iskim1001 END
+
+
+#- DC_CMD setting
+ifeq ($(dcnxt),1)
+     #TOOL_SHELL = "dcnxt_shell -64"
+     TOOL_SHELL = "/misc/tool/ADT/EDA/SNPS/dcnxt_shell_sub -64bit --TV ${TOOL_VER} $(AF)"
+else
+     #TOOL_SHELL = "dc_shell-xg-t -64"
+     TOOL_SHELL = "/misc/tool/ADT/EDA/SNPS/dc_shell_sub -64bit --TV ${TOOL_VER} $(AF) "
+endif
+
+TOOL_CMD = " $(TOOL_SHELL)  -f"
+
+#- Indb setting
+ifeq ($(filter-out  clean help export,$(MAKECMDGOALS)), $(MAKECMDGOALS))
+    ifeq ($(strip $(indb)),)
+    $(error <ADF-ERROR>: indb variable is not defined : make indb=<value> )
+    endif
+endif
+#- mcmm
+ifeq ($(mcmm),1)
+     #TOOL_CMD = " $(TOOL_SHELL) -topo -f"
+     TOOL_CMD = " $(TOOL_SHELL) -topographical_mode -f"
+     USE_MCMM = true
+else
+     USE_MCMM = false
+endif
+#- spg
+ifeq ($(spg),1)
+     #TOOL_CMD = " $(TOOL_SHELL) -topo -f"
+     TOOL_CMD = " $(TOOL_SHELL) -topographical_mode -f"
+     USE_SPG = true
+else
+     USE_SPG = false
+endif
+
+#- gen_elab
+ifeq ($(gen_elab),1)
+     GEN_ELAB = true
+else
+     GEN_ELAB = false
+endif
+
+#- gen_compile_rpt
+ifeq ($(gen_compile_rpt),1)
+     GEN_COMPILE_RPT = true
+else
+     GEN_COMPILE_RPT = false
+endif
+
+# NET_REVISION Setting
+ifeq ($(TOOL_NAME),dc_syn)
+    NET_REVISION = $(SYN_NET_REVISION)
+else
+    NET_REVISION = $(SCAN_NET_REVISION)
+endif
+
+# RUN TAG Setting
+.PHONY : tag
+ifdef tag
+   RUN_TAG = $(INDB_VER)_$(NET_REVISION)_$(tag)
+   EXP_TAG = $(NET_REVISION)_$(tag)
+else
+   RUN_TAG = $(INDB_VER)_$(NET_REVISION)
+   EXP_TAG = $(NET_REVISION)
+endif
+
+
+
+#------------------------------------------------------------------------------
+# Target : Print Help Message
+#------------------------------------------------------------------------------
+.PHONY : help
+help :
+	$(HELP_MSG)
+
+
+#------------------------------------------------------------------------------
+# Target : info
+#------------------------------------------------------------------------------
+.PHONY: info
+info: dir
+	@echo "#----------------------------------------------" |& tee    $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#Variable Check                                " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#----------------------------------------------" |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo " DESIGN   : $(DESIGN)                          " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo " RUN_DIR  : $(RUN_DIR)                         " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "                                               " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#----------------------------------------------" |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#NET Version                                   " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#----------------------------------------------" |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo " INDB_VER        : $(INDB_VER)       	  	  " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo " PRE_REVISION    : $(NET_REVISION)     	  " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo " SDC_VERSION     : $(SDC_VER)"                   |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "                                               " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#----------------------------------------------" |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#ETC                                           " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#----------------------------------------------" |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "DCNXT            : $(dcnxt)"                     |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "SPG              : $(spg)"                       |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "MCMM             : $(mcmm)"                      |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "RPT_POSTFIX      : $(RPT_POSTFIX)              " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "DATE             : $(DATE)                     " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "                                               " |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#----------------------------------------------" |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "# SUB Block"                                     |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo "#----------------------------------------------" |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+	@echo ""                                                |& tee -a $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt
+
+
+#------------------------------------------------------------------------------
+# Target : dir
+#------------------------------------------------------------------------------
+.PHONY : dir
+dir :
+ifneq ($(wildcard $(RUN_DIR)),)
+	@echo "#-------------------------------#"
+	@echo ""
+	@echo "There is a directory that has the same name as ==> \"$(RUN_TAG)\" "
+	@echo ""
+	@echo "#-------------------------------#"
+	@read -p "Should it be deleted  ? (yes or no) : " VAR; \
+	if [ "$$VAR" = "yes" ]; then \
+		rm -rf $(RUN_DIR); \
+	echo	 "$(RUN_DIR) directory deleted."; \
+ 	else \
+	echo	  "$(RUN_DIR) directory not deleted.";  fi
+endif
+	@echo "#-------------------------------#"
+	@echo "# \"$(RUN_TAG)\" Making directories for run       "
+	@echo "#-------------------------------#"
+	@echo ""
+	@if [ ! -d $(RUN_DIR)           		]; then mkdir -p $(RUN_DIR)					; fi ;
+	@if [ ! -d $(RUN_DIR)/$(REPORT_DIR)   	]; then mkdir -p $(RUN_DIR)/$(REPORT_DIR)   ; fi ;
+	@if [ ! -d $(RUN_DIR)/$(OUTPUT_DIR)		]; then mkdir -p $(RUN_DIR)/$(OUTPUT_DIR)   ; fi ;
+	@if [ ! -d $(RUN_DIR)/$(LOG_DIR) 		]; then mkdir -p $(RUN_DIR)/$(LOG_DIR)		; fi ;
+	@if [ ! -d $(RUN_DIR)/$(WORK_DIR) 		]; then mkdir -p $(RUN_DIR)/$(WORK_DIR)		; fi ;
+	cp -rf ./con $(RUN_DIR);
+
+#------------------------------------------------------------------------------
+# Target : setupuser_design_setup.tcl
+#------------------------------------------------------------------------------
+.PHONY : setup
+setup : info
+	@echo "####################################################################"  > $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "# PI_TOOL_COMMON_SETUP                                              " >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "####################################################################" >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "$$define__PI_TOOL_COMMON_SETUP"                                       >> $(RUN_DIR)/$(RUN).setup.tcl
+	$(define__READ_DESIGN_INFO)                                                  >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "#Default Information"                                    >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set TOP_DESIGN           $(DESIGN)"                      >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set DESIGN               $(DESIGN)"                      >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set RUN                  $(RUN)"                         >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set DEBUG_MODE           $(debug)"                       >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "#Input Information"                                      >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set INDB_TYPE            $(INDB_TYPE)"                   >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set INDB_VER     		$(INDB_VER)"          			>> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set TRACK         		\"$(TRACK)\""             			>> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set DK_TYPE         		$(DK_TYPE)"             		>> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set NET_REVISION         $(SYN_NET_REVISION)"            >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set SDC_VER              $(SDC_VER)"                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set PNR_TOOL             $(PNR_TOOL)"                    >> $(RUN_DIR)/$(RUN).setup.tcl
+
+	@echo ""                                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "#DIR Information"                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set RUN_DIR              $(RUN_DIR)"                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set SCRDIR               $(SYN_REF_DIR)"                 >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set PRJ_DC_SYN           $(COMMON_DC_PRJ_SYN)"           >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set REPORT_DIR           $(REPORT_DIR)"                  >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set OUTPUT_DIR           $(OUTPUT_DIR)"                  >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set LOG_DIR              $(LOG_DIR)"                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set HIER_DESIGN          \"$(HIER_DESIGN)\""             >> $(RUN_DIR)/$(RUN).setup.tcl
+
+	@echo "set INDB_DIR             $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/indb" >> $(RUN_DIR)/$(RUN).setup.tcl
+
+	@echo "set RPT_POSTFIX          $(RPT_POSTFIX)"                 >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set ABS_READS           \"$(ABS_READS)\""                >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set ABS_MEM_VERSION      $(ABS_MEM_VERSION)"             >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set ABS_IP_VERSION       $(ABS_IP_VERSION)"              >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set DATE                 $(DATE)"                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set USE_MCMM             $(USE_MCMM)"                    >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set USE_SPG              $(USE_SPG)"                     >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set GEN_ELAB             $(GEN_ELAB)"                    >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set GEN_COMPILE_RPT      $(GEN_COMPILE_RPT)"             >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "set QUIT_ON_FINISH       $(QUIT_ON_FINISH)"              >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+	@echo ""                                                        >> $(RUN_DIR)/$(RUN).setup.tcl
+ifneq ($(HIER_DESIGN),NONE)
+	@for i in $(HIER_DESIGN); do \
+		design=$$i ;\
+		SUB_INDB_VER=$$(projconf.pl           	-get $${design}_INDB_VER )            ;\
+		SUB_NET_REVISION_SYN=$$(projconf.pl  	-get PRE_$${design}_REVISION_SYN)     ;\
+		SUB_NET_REVISION_BIST=$$(projconf.pl 	-get PRE_$${design}_REVISION_BIST)    ;\
+		SUB_NET_REVISION_SCAN=$$(projconf.pl 	-get PRE_$${design}_REVISION_SCAN)    ;\
+		SUB_NET_REVISION_PNRIN=$$(projconf.pl 	-get PRE_$${design}_REVISION_PNRIN)   ;\
+		SUB_PNR_TOOL=$$(projconf.pl          	-get $${design}_PNR_TOOL)             ;\
+		SUB_DK_TYPE=$$(projconf.pl            	-get $${design}_DK_TYPE)           	  ;\
+		SUB_TRACK=$$(projconf.pl              	-get $${design}_TRACK)         	      ;\
+		SUB_NET_REVISION_POST=$$(projconf.pl 	-get POST_$${design}_REVISION_PEX)    ;\
+		SUB_NET_ECO_NUM=$$(projconf.pl       	-get POST_$${design}_STEP_PEX)        ;\
+		SUB_ABS_MEM_VERSION=$$(projconf.pl      -get $${design}_ABS_MEM_VERSION)      ;\
+		SUB_ABS_IP_VERSION=$$(projconf.pl       -get $${design}_ABS_IP_VERSION)       ;\
+		echo "# $$design Information"                                         >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_NAME($$design)               $$design"                  >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_INDB_VER($$design)           $$SUB_INDB_VER"            >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_NET_REVISION_SYN($$design)   $$SUB_NET_REVISION_SYN"    >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_NET_REVISION_BIST($$design)  $$SUB_NET_REVISION_BIST"   >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_DK_TYPE($$design)            $$SUB_DK_TYPE"             >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_TRACK($$design)              $$SUB_TRACK"               >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_NET_REVISION_SCAN($$design)  $$SUB_NET_REVISION_SCAN"   >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_NET_REVISION_PNRIN($$design) $$SUB_NET_REVISION_PNRIN"  >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_PNR_TOOL($$design)           $$SUB_PNR_TOOL"            >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_NET_REVISION_POST($$design)  $$SUB_NET_REVISION_POST"   >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo "set SUB_NET_ECO_NUM($$design)        $$SUB_NET_ECO_NUM"         >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+        echo "set SUB_ABS_MEM_VERSION($$design)    $$SUB_ABS_MEM_VERSION"     >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+        echo "set SUB_ABS_IP_VERSION($$design)     $$SUB_ABS_IP_VERSION"      >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+		echo ""                                                               >> $(RUN_DIR)/$(RUN).setup.tcl ;\
+	done
+endif
+
+#------------------------------------------------------------------------------
+# Target : main
+#------------------------------------------------------------------------------
+.PHONY : main
+main : dir info  setup export_scr
+	@echo "making main script to run design compiler"
+	@cat  $(RUN_DIR)/$(RUN).setup.tcl   			    > $(RUN_DIR)/$(RUN).run.tcl
+	@cat  $(COMMON_DC_SYN)/main.tcl                    >> $(RUN_DIR)/$(RUN).run.tcl
+	@rm  $(RUN_DIR)/$(RUN).setup.tcl
+	@echo "#!/bin/csh -f"                                                                   > $(RUN_DIR)/$(RUN).run.csh
+	@echo "setenv SNPSLMD_QUEUE               true "                                        >> $(RUN_DIR)/$(RUN).run.csh
+#	@echo "#--------------------------------------------------------------#"                >> $(RUN_DIR)/$(RUN).run.csh
+#	@echo "source $(IMPL_TOOL_ENV)/env/syn/$(TOOL_VER)"                                     >> $(RUN_DIR)/$(RUN).run.csh
+#	@echo "#--------------------------------------------------------------#"                >> $(RUN_DIR)/$(RUN).run.csh
+	@echo "setenv SPYGLASS_HOME /misc/tool/SYNOPSYS/spyglass/${TOOL_VER_SPY_GLASS}/SPYGLASS_HOME" >> $(RUN_DIR)/$(RUN).run.csh
+	@echo "$(TOOL_CMD)  ./$(RUN).run.tcl |& tee ./$(LOG_DIR)/$(DESIGN).syn.log"  			>> $(RUN_DIR)/$(RUN).run.csh
+	@chmod +x $(RUN_DIR)/$(RUN).run.csh
+
+#------------------------------------------------------------------------------
+# Target : run
+#------------------------------------------------------------------------------
+.PHONY: run
+run: dir info  setup main
+	@echo "#-------------------------------------------------------------------#"
+	@echo "# Main script Run                                                   #"
+	@echo "#-------------------------------------------------------------------#"
+ifdef x
+	@cd $(RUN_DIR); \
+        xterm -fa Monospace -fs 10 -bg steelblue -fg black -geometry 120x15 -T "[SYN] $(DESIGN)__$(RPT_POSTFIX)" -e "./$(RUN).run.csh" &
+else
+	@cd $(RUN_DIR); ./$(RUN).run.csh;
+endif
+
+#----------------------------------------------------------------------
+# Target : export_scr
+# Target : export
+#----------------------------------------------------------------------
+.PHONY : export_scr
+export_scr :
+	@echo "making export_script under run directory to export Synthesis results later"
+	@echo "#!/bin/csh -f"                                    > $(RUN_DIR)/$(RUN).export.csh
+	@echo "$$EXPORT_CMD"                                    >> $(RUN_DIR)/$(RUN).export.csh
+	@chmod +x  $(RUN_DIR)/$(RUN).export.csh
+
+.PHONY : export
+export: export_scr
+	@echo ".PHONY : export  in progress $(EXPORT_DIR)"
+	$(RUN_DIR)/$(RUN).export.csh
+
+
+define EXPORT_CMD
+
+# If OUTFD_CONFIG_UPDATE Value is set to 0, OUTFD_CONFIG_FILE is not updated.
+echo "#-------------------------------#\n"
+echo "Do you want to replace Gen3 version with lastest ? (yes or no) : "
+set OUTFD_CONFIG_UPDATE = ($$<)
+echo "#-------------------------------#\n"
+
+#Export Directory Check & Create
+echo "Copying $(DESIGN) synthesis results into $(EXPORT_DIR) " > export.log
+if ( ! -d $(EXPORT_DIR) ) then
+	mkdir -vp $(EXPORT_DIR) >> export.log
+
+	set WS_COFIG_FILE        = "$(PROJECT_ENV)/DESIGN/$(DESIGN).config"
+	set OUTFD_CONFIG_FILE    = "$(OUTFD_DIR)/CONFIG/PI/$(DESIGN).config"
+
+	if ( "$$OUTFD_CONFIG_UPDATE" == "yes" ) then
+		if ( ! -e  $$OUTFD_CONFIG_FILE ) then
+			echo "<INFO> : == Design.config Copy (W/S --> OUTFD) =="
+			echo "	Design.config file does not exist."
+			echo "	Copy the config file that currently exists in WorkSpace."
+			umask 002 && mkdir -p `dirname $$OUTFD_CONFIG_FILE` ;# The umask setting is temporarily set to 002.
+			cp -rf $$WS_COFIG_FILE $$OUTFD_CONFIG_FILE
+		else
+			echo "<INFO> : == Design.config modify ( In OUTFD ) =="
+			echo "	Design.config file exists."
+			echo "	Update the outfed_config file with the currently set information."
+			sed -i "s/^PRE_$(DESIGN)_REVISION_SYN\s.*/PRE_$(DESIGN)_REVISION_SYN  $(EXP_TAG)/g" $${OUTFD_CONFIG_FILE}
+		endif
+
+		# Gen3 Latest Link path
+		if (-e $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/$(TOOL_NAME)/latest) then
+			rm  $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/$(TOOL_NAME)/latest
+		endif
+
+		echo "<INFO> : == Latest link modify ( In OUTFD ) =="
+		ln -sf $(EXP_TAG) $(OUTFD_DIR)/$(DESIGN)/$(INDB_VER)/$(TOOL_NAME)/latest
+	else
+		echo "<INFO> : == Neither the CONFIG nor the latest link will be updated for Gen3.  =="
+		echo "<INFO> : == Neither the CONFIG nor the latest link will be updated for Gen3.  =="
+		echo "<INFO> : == Neither the CONFIG nor the latest link will be updated for Gen3.  =="
+		echo "<INFO> : == Neither the CONFIG nor the latest link will be updated for Gen3.  =="
+	endif
+
+	echo "exported_by_$(USER) from: $(RUN_DIR)" >> $(EXPORT_DIR)/EXPORT.INFO
+
+	#Directory Copy
+	cp -vrf $(RUN_DIR)/$(LOG_DIR)                      $(EXPORT_DIR) >> export.log
+	cp -vrf $(RUN_DIR)/$(REPORT_DIR)                   $(EXPORT_DIR) >> export.log
+	cp -vrf $(RUN_DIR)/$(OUTPUT_DIR)                   $(EXPORT_DIR) >> export.log
+	cp -vrf $(RUN_DIR)/$(CON_DIR)                      $(EXPORT_DIR) >> export.log
+	cp -vf  $(RUN_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt  $(EXPORT_DIR) >> export.log
+	ln -svf  $(RUN_DIR)   $(EXPORT_DIR)                              >> export.log
+
+	# Gen3 Report Link
+	if ( ! -d $(EXPORT_DIR)/to_ADF ) then
+		mkdir -vp $(EXPORT_DIR)/to_ADF >> export.log
+	endif
+
+	set Gen3_list = " \
+	$(EXPORT_DIR)/report/$(DESIGN).compile.unmapped.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).final.area.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).final.clock_gating.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).final.global_timing.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).final.mbit.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).final.no_clock.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).final.power.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).latches.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).include_lockup_latches.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).vth.ratio.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).check_mv_design.postsynth.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).check_mv_design.presynth.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).final.user_dont_touch.rpt \
+	$(EXPORT_DIR)/report/$(DESIGN).final.user_dont_use.rpt \
+	$(EXPORT_DIR)/report/runtime.log \
+	$(EXPORT_DIR)/log/$(DESIGN).syn.log \
+	$(EXPORT_DIR)/log/$(DESIGN).syn_OPT_info.log \
+	$(EXPORT_DIR)/$(RPT_POSTFIX).$(RUN).info.rpt \
+	"
+
+	foreach Gen3_file ($$Gen3_list)
+	    if ( -f $$Gen3_file) then
+	        ln -s $$Gen3_file $(EXPORT_DIR)/to_ADF/ >> export.log
+		else
+			echo "Export file : $$Gen3_file is NOT exist" >> export.log
+	    endif
+	end
+	set Gen3_file = (`ls $(EXPORT_DIR)/log/$(DESIGN).read_constraint*.log`)
+	if ($$#Gen3_file > 0) then
+		foreach tt ($$Gen3_file)
+			ln -s $$tt $(EXPORT_DIR)/to_ADF/ >> export.log
+		end
+	else
+		echo "Export file : read_constraint is NOT exist" >> export.log
+	endif
+
+	echo "Export Done to $(EXPORT_DIR)"
+	touch export.$(DESIGN).$(RUN).done
+	chmod -R 775 $(EXPORT_DIR)
+	touch $(EXPORT_DIR)/export.done
+
+	echo "#INFO : Exporting Finised" >> export.log
+else
+	"#INFO : $(EXPORT_DIR) Directory already exist. Check and export again"
+endif
+
+endef
+export EXPORT_CMD
+
+
+
+#------------------------------------------------------------------------------
+# Target : clean
+#------------------------------------------------------------------------------
+.PHONY : clean
+clean :
+	@echo ".PHONY : clean --> Delete all other filse except makefile"
+	@find . -maxdepth 1 -type d ! -name "makefile" ! -name "con" ! -name "." -exec rm -rf {} \;
